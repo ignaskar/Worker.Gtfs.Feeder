@@ -1,14 +1,13 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
-using Serilog.Core;
 using Serilog.Events;
+using Worker.Gtfs.Feeder.Persistence.Extensions;
+using Worker.Gtfs.Feeder.Service.Api;
+using Worker.Gtfs.Feeder.Service.Services;
 
 namespace Worker.Gtfs.Feeder.Service
 {
@@ -49,6 +48,12 @@ namespace Worker.Gtfs.Feeder.Service
                 })
                 .ConfigureServices((context, services) =>
                 {
+                    services.AddPersistence(context.Configuration);
+                    services.AddSingleton<IFeederService, FeederService>();
+                    services.AddHttpClient<IApiHelper, ApiHelper>(client =>
+                    {
+                        client.BaseAddress = new Uri(context.Configuration.GetValue<string>("BaseAddress"));
+                    });
                     services.AddHostedService<Worker>();
                 })
                 .UseSerilog();

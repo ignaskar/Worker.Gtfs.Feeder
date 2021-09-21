@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Worker.Gtfs.Feeder.Service.Services;
 
 namespace Worker.Gtfs.Feeder.Service
 {
@@ -11,23 +12,33 @@ namespace Worker.Gtfs.Feeder.Service
     {
         private readonly ILogger<Worker> _logger;
         private readonly IConfiguration _configuration;
+        private readonly IFeederService _feederService;
 
-        public Worker(ILogger<Worker> logger, IConfiguration configuration)
+        public Worker(ILogger<Worker> logger, IConfiguration configuration, IFeederService feederService)
         {
             _logger = logger;
             _configuration = configuration;
+            _feederService = feederService;
         }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken cancellationToken)
         {
             var refreshTime = _configuration.GetValue<int>("RefreshEveryXSeconds");
             
-            while (!stoppingToken.IsCancellationRequested)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Starting to feed GTFS data...");
-                await Task.Delay(1500, stoppingToken);
-                _logger.LogInformation($"Feed successful! Next feed in: {refreshTime} seconds");
-                await Task.Delay(TimeSpan.FromSeconds(refreshTime), stoppingToken);
+                try
+                {
+                    _logger.LogInformation("Starting to feed GTFS data...");
+                    await _feederService.Feed(cancellationToken);
+                    _logger.LogInformation($"Feed successful! Next feed in: {refreshTime} seconds");
+                    await Task.Delay(TimeSpan.FromSeconds(refreshTime), cancellationToken);
+                }
+                catch
+                {
+                    _logger.LogError($"Retrying in {refreshTime} seconds");
+                    await Task.Delay(TimeSpan.FromSeconds(refreshTime), cancellationToken);
+                }
             }
         }
     }
